@@ -1,12 +1,12 @@
+import gleam/bit_array
 import gleam/bytes_builder
 import gleam/erlang/process
-import gleam/option.{None, type Option, Some}
-import gleam/otp/actor
-import glisten.{Packet}
-import gleam/string
-import gleam/bit_array
-import gleam/result
 import gleam/int
+import gleam/option.{type Option, None, Some}
+import gleam/otp/actor
+import gleam/result
+import gleam/string
+import glisten.{Packet}
 
 const ping_response = "+PONG\r\n"
 
@@ -15,11 +15,12 @@ pub fn main() {
     glisten.handler(fn(_conn) { #(Nil, None) }, fn(msg, state, conn) {
       let assert Packet(msg) = msg
       let message = clean_msg(msg)
-      case string.lowercase(message)  {
+      case string.lowercase(message) {
         "ping" -> {
-          let assert Ok(_) = glisten.send(conn, bytes_builder.from_string(ping_response))
+          let assert Ok(_) =
+            glisten.send(conn, bytes_builder.from_string(ping_response))
           actor.continue(state)
-        } 
+        }
         _ -> {
           let redisvalue = decode(message)
           case redisvalue.0 {
@@ -32,43 +33,74 @@ pub fn main() {
                         "echo" -> {
                           case arg {
                             BulkString(Some(arg)) -> {
-                              let assert Ok(_) = glisten.send(conn, bytes_builder.from_string(encode_bulk_string(arg)))
+                              let assert Ok(_) =
+                                glisten.send(
+                                  conn,
+                                  bytes_builder.from_string(encode_bulk_string(
+                                    arg,
+                                  )),
+                                )
                               actor.continue(state)
                             }
                             _ -> {
-                              let assert Ok(_) = glisten.send(conn, bytes_builder.from_string("Error happened in arg"))
+                              let assert Ok(_) =
+                                glisten.send(
+                                  conn,
+                                  bytes_builder.from_string(
+                                    "Error happened in arg",
+                                  ),
+                                )
                               actor.continue(state)
                             }
                           }
                         }
-                         _ -> {
-                          let assert Ok(_) = glisten.send(conn, bytes_builder.from_string("Command is not echo"))
+                        _ -> {
+                          let assert Ok(_) =
+                            glisten.send(
+                              conn,
+                              bytes_builder.from_string("Command is not echo"),
+                            )
                           actor.continue(state)
-                         }
+                        }
                       }
                     }
                     ErrorValue(text) -> {
-                      let assert Ok(_) = glisten.send(conn, bytes_builder.from_string(text))
+                      let assert Ok(_) =
+                        glisten.send(conn, bytes_builder.from_string(text))
                       actor.continue(state)
-                    } 
+                    }
                     _ -> {
-                      let assert Ok(_) = glisten.send(conn, bytes_builder.from_string("Command is not error value nor bulk string"))
+                      let assert Ok(_) =
+                        glisten.send(
+                          conn,
+                          bytes_builder.from_string(
+                            "Command is not error value nor bulk string",
+                          ),
+                        )
                       actor.continue(state)
                     }
                   }
                 }
                 _ -> {
-                  let assert Ok(_) = glisten.send(conn, bytes_builder.from_string("We matched more than 2 items in list"))
+                  let assert Ok(_) =
+                    glisten.send(
+                      conn,
+                      bytes_builder.from_string(
+                        "We matched more than 2 items in list",
+                      ),
+                    )
                   actor.continue(state)
                 }
               }
             }
             ErrorValue(text) -> {
-              let assert Ok(_) = glisten.send(conn, bytes_builder.from_string(text))
+              let assert Ok(_) =
+                glisten.send(conn, bytes_builder.from_string(text))
               actor.continue(state)
             }
             _ -> {
-              let assert Ok(_) = glisten.send(conn, bytes_builder.from_string("Nothing worked"))
+              let assert Ok(_) =
+                glisten.send(conn, bytes_builder.from_string("Nothing worked"))
               actor.continue(state)
             }
           }
@@ -81,15 +113,14 @@ pub fn main() {
 }
 
 fn clean_msg(msg: BitArray) -> String {
-  bit_array.to_string(msg) 
-    |> result.unwrap(_, "")
-    |> string.trim
+  bit_array.to_string(msg)
+  |> result.unwrap("")
+  |> string.trim
 }
 
 fn encode_bulk_string(input: String) -> String {
   "$" <> int.to_string(string.length(input)) <> "\r\n" <> input <> "\r\n"
 }
-
 
 type RedisValue {
   BulkString(Option(String))
@@ -98,7 +129,8 @@ type RedisValue {
   ErrorValue(String)
 }
 
-type DecodeResult = #(RedisValue, String)
+type DecodeResult =
+  #(RedisValue, String)
 
 fn decode(input: String) -> DecodeResult {
   case input {
@@ -157,13 +189,18 @@ fn decode_bulk_string(input: String, size: Int, acc: RedisValue) -> DecodeResult
     -1 -> #(BulkString(None), input)
     _ -> {
       let acc = case string.first(input) {
-        Ok(letter) -> case acc {
-          BulkString(Some(data)) -> BulkString(Some(data <> letter))
-          _ -> ErrorValue("Bulk string acc souldn't be anything else")
-        }
+        Ok(letter) ->
+          case acc {
+            BulkString(Some(data)) -> BulkString(Some(data <> letter))
+            _ -> ErrorValue("Bulk string acc souldn't be anything else")
+          }
         Error(_) -> ErrorValue("String length did not match")
       }
-      decode_bulk_string(string.slice(input, 1, string.length(input)), size - 1, acc)
+      decode_bulk_string(
+        string.slice(input, 1, string.length(input)),
+        size - 1,
+        acc,
+      )
     }
   }
 }
@@ -173,10 +210,10 @@ fn decode_integer(inp: String) -> DecodeResult {
 
   case parts {
     Ok(p) -> {
-      let num = int.parse(p.0) |> result.unwrap(_, -1)
+      let num = int.parse(p.0) |> result.unwrap(-1)
       let rest = string.append("\\r", p.1)
       #(Integer(num), rest)
     }
-    Error(_) -> #(ErrorValue("Expected a number"), inp) 
+    Error(_) -> #(ErrorValue("Expected a number"), inp)
   }
 }
